@@ -21,6 +21,7 @@ const defaultSettings = {
     markdownEnabled: true,
     defaultMode: 'preview', // edit | preview | split
     bannerHeight: 160,
+    xmlMode: 'structured', // structured | raw
     covers: {}, // lorebook name -> image path
 };
 
@@ -95,13 +96,36 @@ const converter = new showdown.Converter({
 });
 
 /**
+ * Holds lorebook data and the html fragments that rendering swaps in for placeholder tokens.
+ * Tokens keep generated html away from the markdown converter.
+ */
+class RenderContext {
+    constructor(data, depth) {
+        this.data = data;
+        this.depth = depth;
+        this.blocks = [];
+        this.inlines = [];
+        this.code = [];
+    }
+
+    block(html) {
+        this.blocks.push(html);
+        return `\n\nLVBLOCK${this.blocks.length - 1}X\n\n`;
+    }
+
+    inline(html) {
+        this.inlines.push(html);
+        return `LVINLINE${this.inlines.length - 1}X`;
+    }
+}
+
+/**
  * Applies Obsidian syntax to text outside of code spans/blocks.
  * @param {string} text
- * @param {object} data Lorebook data used to resolve links
- * @param {string[]} embeds Collected embed html, referenced by token
- * @param {number} depth Embed nesting depth
+ * @param {RenderContext} ctx
  */
-function preprocess(text, data, embeds, depth) {
+function preprocess(text, ctx) {
+    const { data, depth } = ctx;
     const parts = text.split(/(```[\s\S]*?```|`[^`\n]*`)/g);
     return parts.map((part, i) => {
         if (i % 2 === 1) return part; // code, leave untouched
@@ -122,8 +146,7 @@ function preprocess(text, data, embeds, depth) {
                 } else {
                     html = `<div class="lv-embed"><div class="lv-embed-title"><a class="lv-wikilink" data-target="${escapeHtml(target)}">${escapeHtml(entryTitle(entry))}</a></div>${renderMarkdown(entry.content, data, depth + 1)}</div>`;
                 }
-                embeds.push(html);
-                return `\n\nLVEMBEDTOKEN${embeds.length - 1}X\n\n`;
+                return ctx.block(html);
             })
             // [[Link]] / [[Link|Alias]] / [[Link#Heading]]
             .replace(/\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]*))?\]\]/g, (_, target, alias) => {
@@ -165,6 +188,154 @@ function applyCallouts(root) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// XML tags, used by many lore entries for encapsulation
+// ---------------------------------------------------------------------------
+
+/** Tags treated as ordinary HTML formatting; everything else is lore structure. */
+const HTML_TAGS = new Set(['a', 'b', 'i', 'u', 's', 'em', 'strong', 'br', 'hr', 'sub', 'sup', 'span', 'small', 'mark', 'img', 'code', 'kbd', 'del', 'ins', 'q', 'font', 'center']);
+/** SillyTavern's legacy macros, replaced case-insensitively before the text reaches the model. */
+const LEGACY_MACROS = { user: '{{user}}', bot: '{{char}}', char: '{{char}}', group: '{{group}}', charifnotgroup: '{{charIfNotGroup}}' };
+const TAG_REGEX = /<(\/?)([A-Za-z_][\w.:-]*)((?:\s+[^<>]*?)?)\s*(\/?)>/g;
+const ATTR_REGEX = /([^\s=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"']+)))?/g;
+const CODE_REGEX = /```[\s\S]*?```|`[^`\n]*`/g;
+
+/**
+ * Forgiving tag parser: unclosed or mismatched tags become "stray" nodes instead of failing.
+ * @param {string} text Text with code already masked
+ * @returns {Array<string|object>} Node tree
+ */
+function parseTags(text) {
+    const root = { type: 'root', children: [] };
+    const stack = [root];
+    let last = 0;
+
+    const unwrap = (el) => {
+        const siblings = el.parent.children;
+        siblings.splice(siblings.indexOf(el), 1, { type: 'stray', raw: el.raw, reason: 'Unclosed tag' }, ...el.children);
+        el.children.forEach(child => typeof child === 'object' && (child.parent = el.parent));
+    };
+
+    for (const match of text.matchAll(TAG_REGEX)) {
+        const [raw, closing, name, attrs, selfClosing] = match;
+        const lower = name.toLowerCase();
+        if (HTML_TAGS.has(lower)) continue;
+
+        const top = stack.at(-1);
+        if (match.index > last) top.children.push(text.slice(last, match.index));
+        last = match.index + raw.length;
+
+        if (!closing && !attrs.trim() && !selfClosing && Object.hasOwn(LEGACY_MACROS, lower)) {
+            top.children.push({ type: 'macro', raw, macro: LEGACY_MACROS[lower] });
+        } else if (selfClosing && !closing) {
+            top.children.push({ type: 'empty', name, attrs, raw });
+        } else if (!closing) {
+            const lineStart = text.lastIndexOf('\n', match.index - 1) + 1;
+            const el = {
+                type: 'element', name, attrs, raw, parent: top, children: [],
+                atLineStart: !text.slice(lineStart, match.index).trim(),
+            };
+            top.children.push(el);
+            stack.push(el);
+        } else {
+            const index = stack.findLastIndex((frame, i) => i > 0 && frame.name === name);
+            if (index === -1) {
+                top.children.push({ type: 'stray', raw, reason: 'No matching opening tag' });
+                continue;
+            }
+            while (stack.length - 1 > index) unwrap(stack.pop());
+            const el = stack.pop();
+            const lineEnd = text.indexOf('\n', last);
+            el.closeRaw = raw;
+            el.atLineEnd = !text.slice(last, lineEnd === -1 ? undefined : lineEnd).trim();
+        }
+    }
+
+    if (last < text.length) stack.at(-1).children.push(text.slice(last));
+    while (stack.length > 1) unwrap(stack.pop());
+    return root.children;
+}
+
+/** Removes the shared indentation so indented tag bodies don't turn into code blocks. */
+function dedent(text) {
+    const lines = text.replace(/^[ \t]*\n/, '').replace(/\n[ \t]*$/, '').split('\n');
+    // Nested block tokens sit at column 0 and must not count towards the shared indentation
+    const indents = lines.filter(line => line.trim() && !/^\s*LVBLOCK\d+X\s*$/.test(line)).map(line => line.match(/^[ \t]*/)[0].length);
+    const min = indents.length ? Math.min(...indents) : 0;
+    const indent = new RegExp(`^[ \\t]{0,${min}}`);
+    return lines.map(line => line.replace(indent, '')).join('\n');
+}
+
+function attrPills(attrs) {
+    return [...String(attrs ?? '').matchAll(ATTR_REGEX)].map(([, key, dq, sq, bare]) => {
+        const value = dq ?? sq ?? bare;
+        return `<span class="lv-xml-attr"><span class="lv-xml-attr-key">${escapeHtml(key)}</span>${value !== undefined ? `<span class="lv-xml-attr-value">${escapeHtml(value)}</span>` : ''}</span>`;
+    }).join('');
+}
+
+function rawTag(raw, className = 'lv-xml-raw', title = '') {
+    return `<span class="${className}"${title ? ` title="${escapeHtml(title)}"` : ''}>${escapeHtml(raw)}</span>`;
+}
+
+/**
+ * Turns the node tree back into markdown, with tags replaced by html tokens.
+ * @param {Array<string|object>} nodes
+ * @param {RenderContext} ctx
+ * @param {number} level Tag nesting level, used for colours
+ */
+function serializeNodes(nodes, ctx, level = 0) {
+    const raw = settings().xmlMode === 'raw';
+    return nodes.map(node => {
+        if (typeof node === 'string') return node;
+
+        switch (node.type) {
+            case 'macro':
+                return ctx.inline(`<span class="lv-macro" title="SillyTavern macro ${escapeHtml(node.raw)}">${escapeHtml(node.macro)}</span>`);
+            case 'stray':
+                return ctx.inline(rawTag(node.raw, 'lv-xml-stray', node.reason));
+            case 'empty':
+                return ctx.inline(raw
+                    ? rawTag(node.raw)
+                    : `<span class="lv-xml-chip" style="--lv-level:${level}"><span class="lv-xml-name">${escapeHtml(node.name)}</span>${attrPills(node.attrs)}</span>`);
+        }
+
+        const inner = serializeNodes(node.children, ctx, level + 1);
+        const isBlock = (node.atLineStart && node.atLineEnd) || /\n\s*\n/.test(inner);
+
+        if (raw) {
+            if (!isBlock) return ctx.inline(rawTag(node.raw)) + inner + ctx.inline(rawTag(node.closeRaw));
+            const body = dedent(inner);
+            return ctx.block(`
+                <div class="lv-xml-rawblock">
+                    <div>${rawTag(node.raw)}</div>
+                    ${body.trim() ? `<div class="lv-xml-rawbody">${markdownToHtml(body, ctx)}</div>` : ''}
+                    <div>${rawTag(node.closeRaw)}</div>
+                </div>`);
+        }
+
+        if (!isBlock) {
+            return ctx.inline(`<span class="lv-xml-inline" style="--lv-level:${level}" title="${escapeHtml(node.raw)}"><span class="lv-xml-mark">${escapeHtml(node.name)}</span>`)
+                + inner + ctx.inline('</span>');
+        }
+
+        const body = dedent(inner);
+        return ctx.block(`
+            <div class="lv-xml" style="--lv-level:${level}">
+                <div class="lv-xml-head"><span class="lv-xml-name">${escapeHtml(node.name)}</span>${attrPills(node.attrs)}</div>
+                ${body.trim() ? `<div class="lv-xml-body">${markdownToHtml(body, ctx)}</div>` : ''}
+            </div>`);
+    }).join('');
+}
+
+/**
+ * @param {string} text Markdown with masked code
+ * @param {RenderContext} ctx
+ */
+function markdownToHtml(text, ctx) {
+    const restored = text.replace(/LVCODE(\d+)X/g, (_, i) => ctx.code[Number(i)]);
+    return converter.makeHtml(preprocess(restored, ctx));
+}
+
 /**
  * @param {string} text Markdown source
  * @param {object} data Lorebook data (for link resolution)
@@ -172,9 +343,19 @@ function applyCallouts(root) {
  * @returns {string} Sanitized HTML
  */
 function renderMarkdown(text, data, depth = 0) {
-    const embeds = [];
-    let html = converter.makeHtml(preprocess(String(text ?? ''), data, embeds, depth));
-    html = html.replace(/(?:<p>)?LVEMBEDTOKEN(\d+)X(?:<\/p>)?/g, (_, i) => embeds[Number(i)] ?? '');
+    const ctx = new RenderContext(data, depth);
+    const masked = String(text ?? '').replace(CODE_REGEX, (code) => {
+        ctx.code.push(code);
+        return `LVCODE${ctx.code.length - 1}X`;
+    });
+
+    let html = markdownToHtml(serializeNodes(parseTags(masked), ctx), ctx);
+    // Block html contains tokens of its own nested content, so resolve until none are left
+    for (let pass = 0; pass < 100 && /LV(?:BLOCK|INLINE)\d+X/.test(html); pass++) {
+        html = html
+            .replace(/(?:<p>)?LVBLOCK(\d+)X(?:<\/p>)?/g, (_, i) => ctx.blocks[Number(i)] ?? '')
+            .replace(/LVINLINE(\d+)X/g, (_, i) => ctx.inlines[Number(i)] ?? '');
+    }
     html = DOMPurify.sanitize(html, { ADD_ATTR: ['target', 'open'], ADD_TAGS: ['details', 'summary'] });
 
     const template = document.createElement('template');
@@ -188,6 +369,26 @@ function renderMarkdown(text, data, depth = 0) {
 // ---------------------------------------------------------------------------
 // Inline markdown viewer/editor inside lorebook entries
 // ---------------------------------------------------------------------------
+
+const XML_TOGGLE_HTML = '<div class="menu_button lv-xml-toggle" title="XML tags: structured / raw"><i class="fa-solid fa-code"></i></div>';
+const onXmlModeChange = new Set();
+
+function syncXmlToggles() {
+    $('.lv-xml-toggle').toggleClass('active', settings().xmlMode === 'raw');
+}
+
+function setXmlMode(mode) {
+    settings().xmlMode = mode;
+    saveSettingsDebounced();
+    $('#lv_xml_mode').val(mode);
+    syncXmlToggles();
+    // Refresh every visible preview; callbacks for detached elements drop themselves
+    onXmlModeChange.forEach(callback => callback());
+}
+
+function toggleXmlMode() {
+    setXmlMode(settings().xmlMode === 'raw' ? 'structured' : 'raw');
+}
 
 function enhanceContentTextarea(textarea) {
     if (textarea.dataset.lvEnhanced) return;
@@ -203,7 +404,10 @@ function enhanceContentTextarea(textarea) {
                 <div class="menu_button lv-mode" data-mode="split" title="Split"><i class="fa-solid fa-table-columns"></i></div>
                 <div class="menu_button lv-mode" data-mode="preview" title="Preview"><i class="fa-solid fa-eye"></i></div>
             </div>
-            <div class="menu_button lv-open-vault" title="Open in Vault"><i class="fa-solid fa-book-open"></i> Vault</div>
+            <div class="lv-modes">
+                ${XML_TOGGLE_HTML}
+                <div class="menu_button lv-open-vault" title="Open in Vault"><i class="fa-solid fa-book-open"></i> Vault</div>
+            </div>
         </div>`);
     const wrap = $('<div class="lv-inline"></div>');
     const preview = $('<div class="lv-preview lv-markdown" title="Double-click to edit"></div>');
@@ -228,6 +432,14 @@ function enhanceContentTextarea(textarea) {
     };
 
     toolbar.on('click', '.lv-mode', function () { setMode($(this).data('mode')); });
+    const rerender = () => {
+        if (!textarea.isConnected) return onXmlModeChange.delete(rerender);
+        if (container.attr('data-mode') !== 'edit') refresh();
+    };
+    onXmlModeChange.add(rerender);
+    toolbar.on('click', '.lv-xml-toggle', toggleXmlMode);
+    syncXmlToggles();
+
     toolbar.on('click', '.lv-open-vault', () => openVault(currentWorldName(), Number(uid)));
     $textarea.on('input', () => container.attr('data-mode') !== 'edit' && refreshDebounced());
     preview.on('dblclick', (e) => {
@@ -300,6 +512,7 @@ async function openVault(worldName, uid = null, target = null) {
                     <div class="menu_button lv-back" title="Back"><i class="fa-solid fa-arrow-left"></i></div>
                     <input class="text_pole lv-title" placeholder="Entry title (memo)">
                     <div class="lv-modes">
+                        ${XML_TOGGLE_HTML}
                         <div class="menu_button lv-mode" data-mode="edit" title="Edit"><i class="fa-solid fa-pen"></i></div>
                         <div class="menu_button lv-mode" data-mode="split" title="Split"><i class="fa-solid fa-table-columns"></i></div>
                         <div class="menu_button lv-mode" data-mode="preview" title="Preview"><i class="fa-solid fa-eye"></i></div>
@@ -443,6 +656,8 @@ async function openVault(worldName, uid = null, target = null) {
         if (linkUid !== undefined) return select(data.entries[linkUid]);
         navigate(String($(this).data('target')));
     });
+    root.on('click', '.lv-xml-toggle', toggleXmlMode);
+    onXmlModeChange.add(renderPreview);
     root.on('click', '.lv-suggest-item', function () { applySuggest(Number($(this).data('i'))); });
 
     titleInput.on('input', () => {
@@ -508,7 +723,9 @@ async function openVault(worldName, uid = null, target = null) {
     if (first) select(first, false);
     if (target && !findEntry(data, target)) navigate(target);
 
+    syncXmlToggles();
     await callGenericPopup(root, POPUP_TYPE.DISPLAY, '', { large: true, wide: true, allowVerticalScrolling: false });
+    onXmlModeChange.delete(renderPreview);
 
     // Flush and resync the built-in editor, which holds its own copy of the data
     if (dirty) {
@@ -687,6 +904,11 @@ function injectSettings() {
                         <option value="split">Split</option>
                         <option value="edit">Edit</option>
                     </select>
+                    <label for="lv_xml_mode">XML tags in previews</label>
+                    <select id="lv_xml_mode" class="text_pole">
+                        <option value="structured">Structured (boxes)</option>
+                        <option value="raw">Raw (show tags as text)</option>
+                    </select>
                     <label for="lv_banner_height">Cover banner height: <span id="lv_banner_height_value"></span>px</label>
                     <input type="range" id="lv_banner_height" min="60" max="400" step="10">
                 </div>
@@ -705,6 +927,9 @@ function injectSettings() {
     html.find('#lv_default_mode').val(s.defaultMode).on('change', function () {
         s.defaultMode = String($(this).val());
         saveSettingsDebounced();
+    });
+    html.find('#lv_xml_mode').val(s.xmlMode).on('change', function () {
+        setXmlMode(String($(this).val()));
     });
     html.find('#lv_banner_height_value').text(s.bannerHeight);
     html.find('#lv_banner_height').val(s.bannerHeight).on('input', function () {

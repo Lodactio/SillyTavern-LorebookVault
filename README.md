@@ -23,6 +23,13 @@ A SillyTavern extension that gives lorebooks (World Info) cover art and an Obsid
   - `> [!note] Title` callouts, including folding with `[!tip]-` / `[!tip]+`
   - `==highlight==`, `#tags`, `%% hidden comments %%`
   - Task lists, tables, strikethrough, and code blocks
+- XML-style tags used to wrap lore (`<character name="Aria">…</character>`):
+  - A tag on its own line renders as a labelled box with its attributes shown as chips. Nested tags get their own colours, and markdown inside still renders.
+  - A tag inside a sentence gets a subtle inline highlight. Self-closing tags show as a chip.
+  - Unclosed or mismatched tags appear in red with a squiggle, so you can spot typos.
+  - SillyTavern's legacy macros (`<USER>`, `<BOT>`, `<CHAR>`, `<GROUP>`) show as macro chips.
+  - Common inline HTML (`<b>`, `<i>`, `<font>`, `<span>`, …) stays HTML. Any other tag is treated as lore structure.
+  - The `</>` button (or the setting) switches between this structured view and showing the raw tags as text.
 - The raw text sent to the model is unchanged: what you type is what gets injected.
 
 ## Install

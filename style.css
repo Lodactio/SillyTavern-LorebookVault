@@ -335,3 +335,106 @@ details.lv-callout > summary { cursor: pointer; }
     .lv-panes[data-mode="split"] { flex-direction: column; }
     .lv-inline { flex-direction: column; }
 }
+
+/* ---------- XML tags ---------- */
+.lv-xml,
+.lv-xml-inline,
+.lv-xml-chip {
+    --lv-xml-color: hsl(calc(200 + var(--lv-level, 0) * 70) 65% 62%);
+}
+
+.lv-xml {
+    margin: 0.5em 0;
+    border: 1px solid color-mix(in srgb, var(--lv-xml-color) 35%, transparent);
+    border-left: 3px solid var(--lv-xml-color);
+    border-radius: 4px 6px 6px 4px;
+    background: color-mix(in srgb, var(--lv-xml-color) 6%, transparent);
+}
+
+.lv-xml-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 6px;
+    padding: 2px 8px;
+    font-size: 0.85em;
+    font-family: var(--monoFontFamily, monospace);
+    border-bottom: 1px solid color-mix(in srgb, var(--lv-xml-color) 25%, transparent);
+}
+
+.lv-xml-name {
+    color: var(--lv-xml-color);
+    font-weight: bold;
+}
+
+.lv-xml-attr {
+    display: inline-flex;
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--black30a);
+}
+
+.lv-xml-attr-key { padding: 0 4px; opacity: 0.75; }
+.lv-xml-attr-value { padding: 0 4px; background: var(--black50a); }
+
+.lv-xml-body { padding: 2px 10px; }
+.lv-xml-body > :first-child { margin-top: 0.2em; }
+.lv-xml-body > :last-child { margin-bottom: 0.2em; }
+
+.lv-xml-inline {
+    padding: 0 3px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--lv-xml-color) 14%, transparent);
+    border-bottom: 1px solid var(--lv-xml-color);
+}
+
+.lv-xml-mark {
+    margin-right: 4px;
+    font-size: 0.7em;
+    font-family: var(--monoFontFamily, monospace);
+    color: var(--lv-xml-color);
+    vertical-align: super;
+}
+
+.lv-xml-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px;
+    border: 1px solid var(--lv-xml-color);
+    border-radius: 999px;
+    font-size: 0.85em;
+    font-family: var(--monoFontFamily, monospace);
+}
+
+.lv-xml-raw {
+    font-family: var(--monoFontFamily, monospace);
+    font-size: 0.9em;
+    color: var(--SmartThemeQuoteColor);
+    opacity: 0.85;
+}
+
+.lv-xml-stray {
+    font-family: var(--monoFontFamily, monospace);
+    font-size: 0.9em;
+    color: rgb(233, 49, 71);
+    text-decoration: underline wavy rgb(233, 49, 71);
+    cursor: help;
+}
+
+.lv-macro {
+    padding: 0 5px;
+    border-radius: 4px;
+    font-family: var(--monoFontFamily, monospace);
+    font-size: 0.85em;
+    background: var(--black50a);
+    color: var(--SmartThemeEmColor);
+}
+
+.lv-xml-toggle.active {
+    background-color: var(--SmartThemeQuoteColor);
+    color: var(--SmartThemeBodyColor);
+}
+
+.lv-xml-rawblock { margin: 0.4em 0; }
+.lv-xml-rawbody { padding-left: 1.2em; border-left: 1px dashed var(--SmartThemeBorderColor); margin-left: 0.3em; }
