@@ -189,6 +189,130 @@ function applyCallouts(root) {
 }
 
 // ---------------------------------------------------------------------------
+// {{macros}}
+// ---------------------------------------------------------------------------
+
+const MACRO_CATEGORIES = {
+    random: ['random', 'pick', 'roll'],
+    variable: ['setvar', 'addvar', 'incvar', 'decvar', 'getvar', 'hasvar', 'deletevar', 'setvarkey', 'getvarkey',
+        'setglobalvar', 'addglobalvar', 'incglobalvar', 'decglobalvar', 'getglobalvar', 'hasglobalvar', 'deleteglobalvar', 'setglobalvarkey', 'getglobalvarkey'],
+    control: ['if', '/if', 'else', 'trim', 'noop', 'newline', 'space', 'reverse', 'banned', 'outlet'],
+};
+
+function macroCategory(name) {
+    const lower = name.toLowerCase();
+    if (lower === '//') return 'comment';
+    if (/^[.$]/.test(lower)) return 'variable';
+    return Object.keys(MACRO_CATEGORIES).find(key => MACRO_CATEGORIES[key].includes(lower)) ?? 'value';
+}
+
+/** Finds top-level `{{...}}` spans, respecting nested macros. */
+function findMacros(text) {
+    const spans = [];
+    let depth = 0;
+    let start = -1;
+    for (let i = 0; i < text.length - 1; i++) {
+        if (text[i] === '{' && text[i + 1] === '{') {
+            if (depth++ === 0) start = i;
+            i++;
+        } else if (text[i] === '}' && text[i + 1] === '}' && depth > 0) {
+            if (--depth === 0) spans.push([start, i + 2]);
+            i++;
+        }
+    }
+    return spans;
+}
+
+/**
+ * Replaces each top-level macro, passing the text around them through `outside`.
+ * @param {string} text
+ * @param {(source: string) => string} inside
+ * @param {(text: string) => string} outside
+ */
+function mapMacros(text, inside, outside = x => x) {
+    let result = '';
+    let last = 0;
+    for (const [start, end] of findMacros(text)) {
+        result += outside(text.slice(last, start)) + inside(text.slice(start, end));
+        last = end;
+    }
+    return result + outside(text.slice(last));
+}
+
+/** Splits on a separator, ignoring separators inside nested macros. */
+function splitTopLevel(text, separator) {
+    const parts = [];
+    let depth = 0;
+    let current = '';
+    for (let i = 0; i < text.length; i++) {
+        if (text.startsWith('{{', i)) depth++;
+        if (text.startsWith('}}', i)) depth = Math.max(0, depth - 1);
+        if (depth === 0 && text.startsWith(separator, i)) {
+            parts.push(current);
+            current = '';
+            i += separator.length - 1;
+            continue;
+        }
+        current += text[i];
+    }
+    parts.push(current);
+    return parts;
+}
+
+/** Same splitting rules SillyTavern uses for `{{random}}` / `{{pick}}`. */
+function splitRandomList(text) {
+    if (text.includes('::')) return splitTopLevel(text, '::').map(item => item.trim());
+    return splitTopLevel(text.replace(/\\,/g, '\u0000'), ',').map(item => item.trim().replace(/\u0000/g, ','));
+}
+
+/** Escapes plain text while rendering any macros inside it. */
+function macroText(text) {
+    return mapMacros(text, renderMacro, escapeHtml);
+}
+
+/**
+ * @param {string} source Full macro source, braces included
+ * @returns {string} Chip html
+ */
+function renderMacro(source) {
+    const body = source.slice(2, -2);
+    const match = body.match(/^\s*(\/\/|[^\s:{}]+)\s*(::|:|\s|$)([\s\S]*)$/);
+    if (!match) {
+        return `<span class="lv-macro lv-macro-value" title="${escapeHtml(source)}">${escapeHtml(source)}</span>`;
+    }
+
+    const [, name, separator, rest] = match;
+    const category = macroCategory(name);
+    const braces = (inner, extraClass = '') => `<span class="lv-macro lv-macro-${category}${extraClass}" title="${escapeHtml(source)}"><span class="lv-macro-brace">{{</span>${inner}<span class="lv-macro-brace">}}</span></span>`;
+    const nameHtml = `<span class="lv-macro-name">${category === 'random' ? '<i class="fa-solid fa-dice"></i> ' : ''}${escapeHtml(name)}</span>`;
+
+    if (category === 'comment') {
+        return braces(`${nameHtml} <span class="lv-macro-args">${macroText(rest.trim())}</span>`);
+    }
+
+    const lower = name.toLowerCase();
+    if ((lower === 'random' || lower === 'pick') && rest.trim()) {
+        const items = separator === '::' ? splitTopLevel(rest, '::').map(x => x.trim()) : splitRandomList(rest);
+        const counts = new Map();
+        items.forEach(item => counts.set(item, (counts.get(item) ?? 0) + 1));
+        const weighted = counts.size < items.length;
+        const pills = [...counts].map(([item, count]) => {
+            const percent = Math.round(count / items.length * 1000) / 10;
+            const label = item ? macroText(item) : '<i>(empty)</i>';
+            const weight = weighted ? `<span class="lv-macro-weight">${count > 1 ? `×${count} · ` : ''}${percent}%</span>` : '';
+            return `<span class="lv-macro-option" title="${count} of ${items.length} (${percent}%)">${label}${weight}</span>`;
+        }).join('');
+        const summary = `<span class="lv-macro-count">${items.length} options${weighted ? `, ${counts.size} unique` : ''}</span>`;
+        return braces(`${nameHtml}${summary}<span class="lv-macro-options">${pills}</span>`, ' lv-macro-list');
+    }
+
+    if (!rest.trim()) return braces(nameHtml);
+
+    const args = (separator === '::' || rest.includes('::')) ? splitTopLevel(rest, '::') : [rest];
+    return braces(`${nameHtml}${args.map(arg => `<span class="lv-macro-arg">${macroText(arg.trim())}</span>`).join('')}`);
+}
+
+// ---------------------------------------------------------------------------
 // XML tags, used by many lore entries for encapsulation
 // ---------------------------------------------------------------------------
 
@@ -290,7 +414,7 @@ function serializeNodes(nodes, ctx, level = 0) {
 
         switch (node.type) {
             case 'macro':
-                return ctx.inline(`<span class="lv-macro" title="SillyTavern macro ${escapeHtml(node.raw)}">${escapeHtml(node.macro)}</span>`);
+                return ctx.inline(renderMacro(node.macro).replace('<span class="lv-macro ', `<span data-legacy="${escapeHtml(node.raw)}" class="lv-macro `));
             case 'stray':
                 return ctx.inline(rawTag(node.raw, 'lv-xml-stray', node.reason));
             case 'empty':
@@ -314,7 +438,7 @@ function serializeNodes(nodes, ctx, level = 0) {
         }
 
         if (!isBlock) {
-            return ctx.inline(`<span class="lv-xml-inline" style="--lv-level:${level}" title="${escapeHtml(node.raw)}"><span class="lv-xml-mark">${escapeHtml(node.name)}</span>`)
+            return ctx.inline(`<span class="lv-xml-inline" style="--lv-level:${level}" title="${escapeHtml(node.raw.replace(/LVINLINE\d+X/g, '{{…}}'))}"><span class="lv-xml-mark">${escapeHtml(node.name)}</span>`)
                 + inner + ctx.inline('</span>');
         }
 
@@ -348,8 +472,9 @@ function renderMarkdown(text, data, depth = 0) {
         ctx.code.push(code);
         return `LVCODE${ctx.code.length - 1}X`;
     });
+    const withMacros = mapMacros(masked, source => ctx.inline(renderMacro(source)));
 
-    let html = markdownToHtml(serializeNodes(parseTags(masked), ctx), ctx);
+    let html = markdownToHtml(serializeNodes(parseTags(withMacros), ctx), ctx);
     // Block html contains tokens of its own nested content, so resolve until none are left
     for (let pass = 0; pass < 100 && /LV(?:BLOCK|INLINE)\d+X/.test(html); pass++) {
         html = html
