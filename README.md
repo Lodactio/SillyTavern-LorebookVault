@@ -10,7 +10,7 @@ A SillyTavern extension that gives lorebooks (World Info) cover art, an Obsidian
 - Images are uploaded to `user/images/lorebook-covers/`. The extension settings map each lorebook name to its image.
 
 ### Mobile layout
-- On phones, lorebook entry headers are rearranged into compact rows: the title gets the full width, Position / Depth / Order / Trigger % sit side by side, and the move / copy / delete buttons get their own row. You can turn this off in the settings.
+- On phones, lorebook entry headers are rearranged into compact rows: the title gets the full width, Position / Depth / Order / Trigger % sit side by side, and the move / copy / delete buttons get their own row. You can turn this off in the settings. Entry titles grow to fit their text, so long titles are never cut off.
 - The Vault, gallery, cover banner, and editor toolbar are also tightened up for small screens, with larger tap targets on touch devices.
 
 ### Rich text editing in every prompt field

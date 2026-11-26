@@ -201,6 +201,33 @@ function enhanceField(textarea) {
     syncXmlToggles();
 }
 
+// ---------------------------------------------------------------------------
+// World Info entry titles grow to fit their text
+// ---------------------------------------------------------------------------
+
+const TITLE_SELECTOR = '.world_entry textarea[name="comment"]';
+const nativeAutosize = CSS.supports('field-sizing', 'content');
+
+/** Fallback for browsers without `field-sizing: content`. */
+function fitTitle(textarea) {
+    if (nativeAutosize || !textarea.isConnected) return;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${textarea.scrollHeight + textarea.offsetHeight - textarea.clientHeight}px`;
+}
+
+function fitTitles() {
+    if (nativeAutosize) return;
+    document.querySelectorAll(TITLE_SELECTOR).forEach(el => fitTitle(/** @type {HTMLTextAreaElement} */ (el)));
+}
+
+function initTitleAutosize() {
+    if (nativeAutosize) return;
+    $(document).on('input', TITLE_SELECTOR, function () { fitTitle(this); });
+    // Entries are often rendered while collapsed or hidden; refit once they can be measured
+    $(document).on('click', '.world_entry .inline-drawer-toggle', () => requestAnimationFrame(fitTitles));
+    window.addEventListener('resize', debounce(fitTitles, 150));
+}
+
 let scanQueued = false;
 function scanFields() {
     scanQueued = false;
@@ -208,6 +235,7 @@ function scanFields() {
         if (!field.options.managed && !field.isConnected) field.dispose();
     }
     document.querySelectorAll('textarea:not(.lv-source)').forEach(el => enhanceField(/** @type {HTMLTextAreaElement} */ (el)));
+    fitTitles();
 }
 
 function queueScan() {
@@ -668,6 +696,7 @@ function injectSettings() {
 jQuery(() => {
     settings();
     applyMobileLayout();
+    initTitleAutosize();
     injectSettings();
     injectBanner();
     observeFields();

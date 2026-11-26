@@ -422,6 +422,16 @@ details.lv-callout > summary { cursor: pointer; }
     .lv-suggest-item { padding: 8px 12px; }
 }
 
+/* ---------- World Info entry titles ----------
+   The title box grows to fit its text instead of cutting it off at one line. */
+.world_entry textarea[name="comment"] {
+    field-sizing: content;
+    min-height: calc(1lh + 10px);
+    max-height: none;
+    resize: none;
+    overflow: hidden;
+}
+
 /* ---------- Mobile World Info entries ----------
    SillyTavern's own entry header squeezes the title into a sliver and stacks Position / Depth /
    Order / Trigger % in a column on phones. This lays it out in three compact rows:
