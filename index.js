@@ -576,7 +576,7 @@ async function openGallery() {
 // ---------------------------------------------------------------------------
 
 function applyMobileLayout() {
-    document.body.classList.toggle('lv-mobile-wi', settings().mobileLayout);
+    document.body.classList.toggle('lv-mobile-wi-off', !settings().mobileLayout);
 }
 
 function injectSettings() {

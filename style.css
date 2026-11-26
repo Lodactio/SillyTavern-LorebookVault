@@ -429,7 +429,7 @@ details.lv-callout > summary { cursor: pointer; }
      Position | Depth | Order | Trigger %
      =                  [extras] [move] [copy] [delete]                                        */
 @media (max-width: 1000px) {
-    body.lv-mobile-wi .world_entry .inline-drawer-header {
+    body:not(.lv-mobile-wi-off) .world_entry .inline-drawer-header {
         flex-wrap: wrap;
         justify-content: flex-end;
         align-items: center;
@@ -437,7 +437,7 @@ details.lv-callout > summary { cursor: pointer; }
         padding: 6px 0 4px;
     }
 
-    body.lv-mobile-wi .world_entry .inline-drawer-header > .world_entry_thin_controls {
+    body:not(.lv-mobile-wi-off) .world_entry .inline-drawer-header > .world_entry_thin_controls {
         flex: 1 1 100%;
         flex-wrap: wrap;
         align-items: center;
@@ -447,14 +447,14 @@ details.lv-callout > summary { cursor: pointer; }
     }
 
     /* Drag handle and the action buttons share the last row */
-    body.lv-mobile-wi .world_entry .inline-drawer-header > :not(.world_entry_thin_controls) { order: 1; margin: 0; }
-    body.lv-mobile-wi .world_entry .inline-drawer-header > .drag-handle { margin-right: auto; padding: 0 6px; }
-    body.lv-mobile-wi .world_entry .inline-drawer-header > .menu_button { padding: 6px 10px; }
+    body:not(.lv-mobile-wi-off) .world_entry .inline-drawer-header > :not(.world_entry_thin_controls) { order: 1; margin: 0; }
+    body:not(.lv-mobile-wi-off) .world_entry .inline-drawer-header > .drag-handle { margin-right: auto; padding: 0 6px; }
+    body:not(.lv-mobile-wi-off) .world_entry .inline-drawer-header > .menu_button { padding: 6px 10px; }
 
     /* Flatten the wrapper so title + controls flow straight into the thin controls row */
-    body.lv-mobile-wi .world_entry .world_entry_thin_controls > .flex-container.wide100p { display: contents; }
+    body:not(.lv-mobile-wi-off) .world_entry .world_entry_thin_controls > .flex-container.wide100p { display: contents; }
 
-    body.lv-mobile-wi .world_entry .WIEntryTitleAndStatus {
+    body:not(.lv-mobile-wi-off) .world_entry .WIEntryTitleAndStatus {
         flex: 1 1 0;
         flex-wrap: nowrap;
         min-width: 0;
@@ -462,13 +462,13 @@ details.lv-callout > summary { cursor: pointer; }
         gap: 6px;
     }
 
-    body.lv-mobile-wi .world_entry .WIEntryTitleAndStatus > .flex-container { min-width: 0; }
-    body.lv-mobile-wi .world_entry .WIEntryTitleAndStatus textarea[name="comment"] { width: 100%; min-width: 0; margin: 0; }
-    body.lv-mobile-wi .world_entry .WIEntryTitleAndStatus select[name="entryStateSelector"] { flex: 0 0 auto; }
+    body:not(.lv-mobile-wi-off) .world_entry .WIEntryTitleAndStatus > .flex-container { min-width: 0; }
+    body:not(.lv-mobile-wi-off) .world_entry .WIEntryTitleAndStatus textarea[name="comment"] { width: 100%; min-width: 0; margin: 0; }
+    body:not(.lv-mobile-wi-off) .world_entry .WIEntryTitleAndStatus select[name="entryStateSelector"] { flex: 0 0 auto; }
 
     /* Position / Depth / Order / Trigger % side by side, each with a small label on top.
        (SillyTavern's markup spells this class "WIEnteryHeaderControls".) */
-    body.lv-mobile-wi .world_entry :is(.WIEnteryHeaderControls, .WIEntryHeaderControls) {
+    body:not(.lv-mobile-wi-off) .world_entry :is(.WIEnteryHeaderControls, .WIEntryHeaderControls) {
         flex: 1 1 100%;
         display: flex;
         flex-wrap: nowrap;
@@ -477,7 +477,7 @@ details.lv-callout > summary { cursor: pointer; }
         min-width: 0;
     }
 
-    body.lv-mobile-wi .world_entry :is(.WIEnteryHeaderControls, .WIEntryHeaderControls) > .world_entry_form_control {
+    body:not(.lv-mobile-wi-off) .world_entry :is(.WIEnteryHeaderControls, .WIEntryHeaderControls) > .world_entry_form_control {
         flex: 1 1 0;
         flex-direction: column;
         align-items: stretch;
@@ -485,9 +485,9 @@ details.lv-callout > summary { cursor: pointer; }
         gap: 1px;
     }
 
-    body.lv-mobile-wi .world_entry :is(.WIEnteryHeaderControls, .WIEntryHeaderControls) > [name="PositionBlock"] { flex-grow: 1.4; }
+    body:not(.lv-mobile-wi-off) .world_entry :is(.WIEnteryHeaderControls, .WIEntryHeaderControls) > [name="PositionBlock"] { flex-grow: 1.4; }
 
-    body.lv-mobile-wi .world_entry :is(.WIEnteryHeaderControls, .WIEntryHeaderControls) .WIEntryHeaderTitleMobile {
+    body:not(.lv-mobile-wi-off) .world_entry :is(.WIEnteryHeaderControls, .WIEntryHeaderControls) .WIEntryHeaderTitleMobile {
         font-size: 0.75em;
         line-height: 1.2;
         opacity: 0.7;
@@ -496,14 +496,14 @@ details.lv-callout > summary { cursor: pointer; }
         text-overflow: ellipsis;
     }
 
-    body.lv-mobile-wi .world_entry :is(.WIEnteryHeaderControls, .WIEntryHeaderControls) :is(input, select) {
+    body:not(.lv-mobile-wi-off) .world_entry :is(.WIEnteryHeaderControls, .WIEntryHeaderControls) :is(input, select) {
         width: 100%;
         max-width: none;
         min-width: 0;
         box-sizing: border-box;
     }
 
-    body.lv-mobile-wi .world_entry :is(.WIEnteryHeaderControls, .WIEntryHeaderControls) select { padding-right: 16px; }
+    body:not(.lv-mobile-wi-off) .world_entry :is(.WIEnteryHeaderControls, .WIEntryHeaderControls) select { padding-right: 16px; }
 }
 
 /* ---------- XML tags ---------- */
