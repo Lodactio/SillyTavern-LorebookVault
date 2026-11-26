@@ -9,6 +9,10 @@ A SillyTavern extension that gives lorebooks (World Info) cover art, an Obsidian
 - A **Lorebook gallery** (images button) that shows every lorebook as a card. Click a card to open that lorebook.
 - Images are uploaded to `user/images/lorebook-covers/`. The extension settings map each lorebook name to its image.
 
+### Mobile layout
+- On phones, lorebook entry headers are rearranged into compact rows: the title gets the full width, Position / Depth / Order / Trigger % sit side by side, and the move / copy / delete buttons get their own row. You can turn this off in the settings.
+- The Vault, gallery, cover banner, and editor toolbar are also tightened up for small screens, with larger tap targets on touch devices.
+
 ### Rich text editing in every prompt field
 Every field whose text is sent to the model is edited in place, with its formatting shown as you type. There is no switching to a plain textarea to make a change.
 - **Where:** lorebook entries; character cards (description, personality, scenario, first message, alternate greetings, example dialogue, main prompt / post-history overrides, character's note); presets (prompt manager prompts and quick edits, utility prompts, prefills, story string, instruct sequences, system prompts, reasoning formatting); persona description, Author's Note, and any other field SillyTavern marks for macros. SillyTavern's "expand the editor" popup is rich as well. Each group can be switched off in the settings.

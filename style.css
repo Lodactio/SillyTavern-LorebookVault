@@ -397,10 +397,113 @@ details.lv-callout > summary { cursor: pointer; }
 
 /* ---------- Mobile ---------- */
 @media (max-width: 1000px) {
-    .lv-vault { flex-direction: column; }
-    .lv-sidebar { width: auto; max-height: 30vh; border-right: none; border-bottom: 1px solid var(--SmartThemeBorderColor); padding: 0 0 8px; }
+    .lv-vault { flex-direction: column; gap: 6px; min-height: 0; height: 100%; }
+    .lv-sidebar { width: auto; max-height: 28vh; border-right: none; border-bottom: 1px solid var(--SmartThemeBorderColor); padding: 0 0 6px; }
     .lv-vault-cover { display: none; }
+    .lv-vault-name { padding: 0; }
+    .lv-main { min-height: 50vh; }
+    .lv-main-header .lv-title { font-size: 1.05em; min-width: 0; }
     .lv-field[data-mode="split"] .lv-field-panes { flex-direction: column; }
+
+    #lv_cover_banner.has-cover { height: min(var(--lv-banner-height), 120px); }
+    #lv_cover_banner .lv-banner-name { flex: 1 1 0; min-width: 0; font-size: 1.1em; }
+
+    .lv-gallery-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+
+    /* The toolbar wraps inside the field's width instead of running off screen */
+    .lv-tb { left: 0; justify-content: flex-start; }
+    .lv-field.lv-static-toolbar > .lv-tb { flex-wrap: wrap; justify-content: flex-start; }
+}
+
+/* Touch screens: no hover, so make toolbar buttons and file rows easier to hit */
+@media (pointer: coarse) {
+    .lv-tb .lv-tb-btn { min-width: 32px; min-height: 30px; padding: 4px 8px; font-size: 0.9em; }
+    .lv-file { padding: 7px 8px; }
+    .lv-suggest-item { padding: 8px 12px; }
+}
+
+/* ---------- Mobile World Info entries ----------
+   SillyTavern's own entry header squeezes the title into a sliver and stacks Position / Depth /
+   Order / Trigger % in a column on phones. This lays it out in three compact rows:
+     [v] [on] Title.................. [state]
+     Position | Depth | Order | Trigger %
+     =                  [extras] [move] [copy] [delete]                                        */
+@media (max-width: 1000px) {
+    body.lv-mobile-wi .world_entry .inline-drawer-header {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 0 4px;
+    }
+
+    body.lv-mobile-wi .world_entry .inline-drawer-header > .world_entry_thin_controls {
+        flex: 1 1 100%;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 8px;
+        min-width: 0;
+        order: 0;
+    }
+
+    /* Drag handle and the action buttons share the last row */
+    body.lv-mobile-wi .world_entry .inline-drawer-header > :not(.world_entry_thin_controls) { order: 1; margin: 0; }
+    body.lv-mobile-wi .world_entry .inline-drawer-header > .drag-handle { margin-right: auto; padding: 0 6px; }
+    body.lv-mobile-wi .world_entry .inline-drawer-header > .menu_button { padding: 6px 10px; }
+
+    /* Flatten the wrapper so title + controls flow straight into the thin controls row */
+    body.lv-mobile-wi .world_entry .world_entry_thin_controls > .flex-container.wide100p { display: contents; }
+
+    body.lv-mobile-wi .world_entry .WIEntryTitleAndStatus {
+        flex: 1 1 0;
+        flex-wrap: nowrap;
+        min-width: 0;
+        width: auto;
+        gap: 6px;
+    }
+
+    body.lv-mobile-wi .world_entry .WIEntryTitleAndStatus > .flex-container { min-width: 0; }
+    body.lv-mobile-wi .world_entry .WIEntryTitleAndStatus textarea[name="comment"] { width: 100%; min-width: 0; margin: 0; }
+    body.lv-mobile-wi .world_entry .WIEntryTitleAndStatus select[name="entryStateSelector"] { flex: 0 0 auto; }
+
+    /* Position / Depth / Order / Trigger % side by side, each with a small label on top.
+       (SillyTavern's markup spells this class "WIEnteryHeaderControls".) */
+    body.lv-mobile-wi .world_entry :is(.WIEnteryHeaderControls, .WIEntryHeaderControls) {
+        flex: 1 1 100%;
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 6px;
+        width: 100%;
+        min-width: 0;
+    }
+
+    body.lv-mobile-wi .world_entry :is(.WIEnteryHeaderControls, .WIEntryHeaderControls) > .world_entry_form_control {
+        flex: 1 1 0;
+        flex-direction: column;
+        align-items: stretch;
+        min-width: 0;
+        gap: 1px;
+    }
+
+    body.lv-mobile-wi .world_entry :is(.WIEnteryHeaderControls, .WIEntryHeaderControls) > [name="PositionBlock"] { flex-grow: 1.4; }
+
+    body.lv-mobile-wi .world_entry :is(.WIEnteryHeaderControls, .WIEntryHeaderControls) .WIEntryHeaderTitleMobile {
+        font-size: 0.75em;
+        line-height: 1.2;
+        opacity: 0.7;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    body.lv-mobile-wi .world_entry :is(.WIEnteryHeaderControls, .WIEntryHeaderControls) :is(input, select) {
+        width: 100%;
+        max-width: none;
+        min-width: 0;
+        box-sizing: border-box;
+    }
+
+    body.lv-mobile-wi .world_entry :is(.WIEnteryHeaderControls, .WIEntryHeaderControls) select { padding-right: 16px; }
 }
 
 /* ---------- XML tags ---------- */

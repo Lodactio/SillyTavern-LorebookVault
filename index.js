@@ -28,6 +28,7 @@ const defaultSettings = {
         other: true,
     },
     bannerHeight: 160,
+    mobileLayout: true, // compact World Info entry headers on phones
     xmlMode: 'structured', // structured | raw
     covers: {}, // lorebook name -> image path
 };
@@ -574,6 +575,10 @@ async function openGallery() {
 // Settings
 // ---------------------------------------------------------------------------
 
+function applyMobileLayout() {
+    document.body.classList.toggle('lv-mobile-wi', settings().mobileLayout);
+}
+
 function injectSettings() {
     const s = settings();
     const html = $(`
@@ -585,6 +590,7 @@ function injectSettings() {
                 </div>
                 <div class="inline-drawer-content">
                     <label class="checkbox_label"><input type="checkbox" id="lv_covers_enabled"> Lorebook cover art</label>
+                    <label class="checkbox_label"><input type="checkbox" id="lv_mobile_layout"> Compact lorebook entry layout on phones</label>
                     <h4>Rich editor in prompt fields</h4>
                     <label class="checkbox_label"><input type="checkbox" id="lv_markdown_enabled"> Lorebook entries</label>
                     <label class="checkbox_label"><input type="checkbox" class="lv-target" data-target="character"> Character card (description, personality, scenario, greetings, examples, overrides)</label>
@@ -612,6 +618,11 @@ function injectSettings() {
         s.coversEnabled = this.checked;
         saveSettingsDebounced();
         updateBanner();
+    });
+    html.find('#lv_mobile_layout').prop('checked', s.mobileLayout).on('change', function () {
+        s.mobileLayout = this.checked;
+        saveSettingsDebounced();
+        applyMobileLayout();
     });
     html.find('#lv_markdown_enabled').prop('checked', s.markdownEnabled).on('change', function () {
         s.markdownEnabled = this.checked;
@@ -656,6 +667,7 @@ function injectSettings() {
 
 jQuery(() => {
     settings();
+    applyMobileLayout();
     injectSettings();
     injectBanner();
     observeFields();
